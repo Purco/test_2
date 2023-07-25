@@ -1,0 +1,1735 @@
+---
+title: "Training for test2"
+output: html_notebook
+---
+
+
+
+
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# define list of packages in vector
+package<-c("tidyverse","rstatix","ggh4x")
+
+# define function to load all packages
+instal<-function(x){ 
+  for(pkg in x){
+  instal=require(pkg, character.only = T) # load package x 
+}}
+instal(package) # load list of packages in vector package
+
+```
+
+Unités :
+
+-   Poids en g
+
+-   taille en mm
+
+```{r,echo=FALSE}
+# set working directory
+
+setwd("C:/Users/prralien/Documents/git_test/git_test2/data")
+#Import data
+
+data_emp_ind_21<-read.csv("2021_Empoissonnement_SEPURE_mesure_individuelle.csv",header=T, sep=";")
+data_emp_grp_21<-read.csv("2021_Empoissonnement _Sepure_mesure_groupee.csv",header=T, sep=";")
+data_pch_ind_21<-read.csv("2021_Pêche_SEPURE_mesure_individuelle.csv",header=T, sep=";")
+data_pch_grp_21<-read.csv("2021_Pêche_Sepure_mesure groupee.csv",header=T, sep=";")
+
+```
+
+
+
+# Caractéristiques des étangs
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+
+# Period = 08 March – 03 December (270 days) 
+
+
+# Define the characteristic of each pond
+
+
+
+
+Etang<-c("No_Pond","Treatment","Area_ha","Deep_m") # List of ponds characteristics
+Etang1<-c("1","P",0.1,1)# Characteristic of pond 1
+Etang2<-c("2","C",0.1,1)# Characteristic of pond 2
+Etang3<-c("3","P",0.1,1)# Characteristic of pond 3
+Etang4<-c("4","C",0.1,1)# Characteristic of pond 4
+Etang5<-c("5","P",0.1,1)# Characteristic of pond 5
+Etang6<-c("6","C",0.1,1)# Characteristic of pond 6
+
+tab_ktk<-rbind(Etang1,Etang2,Etang3,Etang4,Etang5,Etang6) # Merge by row all characteristics
+
+colnames(tab_ktk)<-c(Etang) # Rename the column of characteristic
+
+knitr::kable(tab_ktk,align ="cccc") # Print the table
+```
+
+# Empoissonnement
+
+# Pratique pour l'année 2021
+
+## Données de mensuration individuelle
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Individual weighing data
+
+# Summary of species data by pond and treatment: average individual weight (Wi), total weight (Wi_T), and initial size (Ni)
+Emp21_indiv<-data_emp_ind_21%>%group_by(pond,treatment,sp)%>%summarise(Wimin=min(W),Wimax=max(W),Wimean=mean(W),sdi=sd(W),Wi_T=sum(W),Limin=min(L),Limax=max(L),Limean=mean(W),sdi=sd(L),Ni=n())%>%mutate(Prc=Wi_T/sum(Wi_T)*100)
+
+
+knitr::kable(Emp21_indiv,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+
+## Données de mensuration individuelle : moyenne par espèce
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Individual weighing data
+
+# Summary of species data by pond and treatment: average individual weight (Wi), total weight (Wi_T), and initial size (Ni)
+Emp21_indiv.m.sp<-data_emp_ind_21%>%group_by(sp)%>%summarise(Wimin=min(W),Wimax=max(W),Wimean=mean(W),sdi=sd(W),Wi_T=sum(W),Limin=min(L),Limax=max(L),Limean=mean(W),sdi=sd(L),Ni=n())%>%mutate(Prc=Wi_T/sum(Wi_T)*100)
+
+
+knitr::kable(Emp21_indiv.m.sp,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+
+
+## Donnée de mensuration groupée
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Grouped data
+Emp21_grp<-data_emp_grp_21%>%group_by(pond,treatment,sp)%>%summarise(Wt=sum(Wt),Nt=sum(Nt),Wi=Wt/Nt)
+
+knitr::kable(Emp21_grp,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+
+
+
+### Grouper le data individuel et le data groupé 
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Linked individual and grouped data
+
+## Select the column "pond,treatment,sp,W"
+
+slct.data.emp.ind.21<-data_emp_ind_21%>%select(pond,treatment,sp,W)
+
+slct.data.emp.grp.21<-Emp21_grp%>%select(pond,treatment,sp,Wi)%>%rename(W=Wi)%>%mutate(pond=case_when(pond=="1"~"1G",
+                                                                                                       pond=="2"~"2G",
+                                                                                                       pond=="3"~"3G",
+                                                                                                       pond=="4"~"4G",
+                                                                                                       pond=="5"~"5G",
+                                                                                                       T~"6G"))
+slct.data.emp.ind.21$pond<-as.character(slct.data.emp.ind.21$pond)
+slct.data.emp.W.21<-rbind(slct.data.emp.grp.21,slct.data.emp.ind.21)
+
+```
+
+
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+slct.data.emp.W.21$pond<-as.character(slct.data.emp.W.21$pond)
+slct.data.emp.W.21$treatment<-factor(slct.data.emp.W.21$treatment,levels = c("P","C"))
+
+trtmt_names <- c('C'='Ouvert','P'='Pacage')
+sp_names <- c('Carp'='Carpe','Roach'='Gardon','Tench'='Tanche','Zander'='Sandre')
+
+
+for (i in 1:length(unique(slct.data.emp.W.21$sp))){
+fig.emp.W.21= ggplot(slct.data.emp.W.21[slct.data.emp.W.21$sp==unique(slct.data.emp.W.21$sp)[i],],aes(x = pond, y = W)) +
+  geom_boxplot(width = 0.5,fill="grey50",color="black")+
+  geom_jitter(alpha = 0.2, size = 2, width = 0.1, height = 0) +
+  stat_boxplot(geom="errorbar",width=0.2, coef=NULL)+
+    stat_summary(fun=mean,col="red",size=0.2)+
+  facet_grid(sp~treatment,scales='free',labeller = labeller(sp = as_labeller(sp_names,label_parsed),
+                                                            treatment= as_labeller(trtmt_names, label_parsed)))+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "white",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "white",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Etangs",y="Poids (g)")
+
+print(fig.emp.W.21)
+}
+
+```
+
+
+
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Linked individual and grouped data
+Emp21_grp1<-as.data.frame(lapply(Emp21_grp,rep,Emp21_grp$Nt))%>%select(pond,treatment,sp,Wi) # Repeat N times the number of unmeasured individuals
+Emp21_indiv1<-data_emp_ind_21%>%select(pond,treatment,sp,W)%>%rename(Wi=W) # Select variable
+
+Emp21<-rbind(Emp21_indiv1,Emp21_grp1) # Combine all data
+
+```
+
+## Poids des espèces par étang et par traitement (en tenant compte des données mesurées en groupe)
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+Emp21_all<-Emp21%>%group_by(pond,treatment,sp)%>%summarise(Wimean=mean(Wi),sdi=sd(Wi),Wi_T=sum(Wi),Ni=n())%>%mutate(Prc=Wi_T/sum(Wi_T)*100)
+knitr::kable(Emp21_all,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+## Moyennes des poids des espèces par étang (en tenant compte des données mesurées en groupe)
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+Emp21_all1<-Emp21_all%>%group_by(sp)%>%summarise(sdi=sd(Wimean),Wimean=mean(Wimean),Wi_T=mean(Wi_T),Ni=mean(Ni))%>%mutate(Prc=Wi_T/sum(Wi_T)*100)
+Emp21_all1$d_kg.ha<-Emp21_all1$Wi_T*(1/0.1)/1000
+knitr::kable(Emp21_all1,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+## Densité moyen d'empoissonnement (kg/ha)
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+sum(Emp21_all1$Wi_T)*(1/0.1)/1000
+```
+
+## Poids moyen d'empoissonnement (en kg)
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+sum(Emp21_all1$Wi_T)/1000
+```
+
+## Effectif moyen d'empoissonnement
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+round(sum(Emp21_all1$Ni),digits = 0)
+```
+
+# Lenght-weight relationship: by Pond and by species
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+# Individual data
+# Concatenate the column of pond and species in order to have a unique name
+
+data_emp_ind_21$pond.sp<-paste(data_emp_ind_21$pond,":",data_emp_ind_21$sp)
+
+# Plot of length vs weight
+
+pond.sp<-unique(data_emp_ind_21$pond.sp)
+
+for (i in 1:length(pond.sp)){
+   plot(data_emp_ind_21[data_emp_ind_21$pond.sp==pond.sp[i],]$L*0.10,data_emp_ind_21[data_emp_ind_21$pond.sp==pond.sp[i],]$W,
+      xlab = "Longueur en cm",ylab = "Poids en g",
+      main=paste("Etang",pond.sp[i]))  
+}  
+
+```
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=3}
+sp<-unique(data_emp_ind_21$sp)
+
+for (i in 1:length(sp)){
+fig1=ggplot(data_emp_ind_21[data_emp_ind_21$sp==sp[i],],aes(x = L*0.1, y = W)) +
+  geom_point()+
+  facet_grid(sp~pond,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm",y="Poids en g")
+print(fig1)
+}
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+# Tableau des valeurs ajouter dans les figures
+
+Emp21_indiv_xy<-data_emp_ind_21%>%group_by(sp)%>%summarise(L.x=min(L),W.y=max(W)) # Pour avoir les coordonnées des points
+
+Emp21_indiv_xy1<-merge(Emp21_indiv,Emp21_indiv_xy) # Coupler avec le tableau 
+
+Emp21_indiv_xy1[Emp21_indiv_xy1$sp=="Zander",]$L.x<-Emp21_indiv_xy1[Emp21_indiv_xy1$sp=="Zander",]$L.x*0.75 # Modification des coordo pour sandre 
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=3}
+
+for (i in 1:length(sp)){
+fig11=
+  
+  ggplot(data_emp_ind_21[data_emp_ind_21$sp==sp[i],],aes(x = L*0.1, y = W)) +
+  geom_point(shape=19)+
+  
+  geom_text(data=Emp21_indiv_xy1[Emp21_indiv_xy1$sp==sp[i],], aes(x=L.x*0.1*1.5,y = W.y,label=paste(round(Wimean,2),"±",round(sdi,2))))+
+  geom_text(data=Emp21_indiv_xy1[Emp21_indiv_xy1$sp==sp[i],], aes(x=L.x*0.1*1.5,y = W.y*0.9,label=paste("(",Wimin,"-",Wimax,")")))+
+  
+  facet_grid(sp~pond)+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm",y="Poids en g")
+
+
+print(fig11)
+}
+
+```
+
+
+
+# Lenght-weight relationship: by species
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+sp<-unique(data_emp_ind_21$sp)
+
+for (i in 1:length(sp)){
+  
+   plot(data_emp_ind_21[data_emp_ind_21$sp==sp[i],]$L*0.10,data_emp_ind_21[data_emp_ind_21$sp==sp[i],]$W,
+      xlab = "Longueur en cm",ylab = "Poids en g",
+      main=sp[i])   
+}  
+
+```
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=6}
+ggplot(data_emp_ind_21,aes(x = L*0.1, y = W)) +
+  geom_point()+
+  facet_wrap(~sp,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm",y="Poids en g")
+
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+# Tableau des valeurs ajouter dans les figures
+Emp21_indiv_xy2<-data_emp_ind_21%>%group_by(sp)%>%summarise(Wimin=min(W),Wimax=max(W),Wimean=mean(W),sdi=sd(W),L.x=min(L)) # Pour avoir les coordonnées des points
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=6}
+
+data_emp_ind_21$pond<-as.character(data_emp_ind_21$pond)
+ggplot(data_emp_ind_21,aes(x = L*0.1, y = W)) +
+  geom_point(aes(color=pond))+
+ 
+   geom_text(data=Emp21_indiv_xy2, aes(x=L.x*0.1*1.17,y = Wimax,label=paste(round(Wimean,2),"±",round(sdi,2))))+
+   geom_text(data=Emp21_indiv_xy2, aes(x=L.x*0.1*1.17,y = Wimax*0.9,label=paste("(",Wimin,"-",Wimax,")")))+
+  
+  facet_wrap(~sp,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm",y="Poids en g", color="Pond")
+
+
+```
+
+
+
+# Données individuelles
+
+## Histogramme du poids : par espèces et par étangs
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+
+for (i in 1:length(pond.sp)){
+
+hist(data_emp_ind_21[data_emp_ind_21$pond.sp==pond.sp[i],]$W,
+      xlab = "Poids en g",
+      main=pond.sp[i])   
+}  
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=3}
+
+for (i in 1:length(sp)){
+fig2=ggplot(data_emp_ind_21[data_emp_ind_21$sp==sp[i],],aes(x = W)) +
+  
+  geom_histogram(color = "black")+
+  
+  facet_grid(sp~pond,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Poids en g")
+print(fig2)
+}
+
+```
+
+## Histogramme du poids : par espèces
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+
+for (i in 1:length(sp)){
+
+hist(data_emp_ind_21[data_emp_ind_21$sp==sp[i],]$W,
+      xlab = "Poids en g",
+      main=sp[i])   
+}  
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+
+ggplot(data_emp_ind_21,aes(x = W)) +
+  
+  geom_histogram(color = "black")+
+ 
+  facet_wrap(~sp,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Poids en g")
+
+```
+
+## Histogramme de la taille : par espèces et par étangs
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+
+for (i in 1:length(pond.sp)){
+
+hist(data_emp_ind_21[data_emp_ind_21$pond.sp==pond.sp[i],]$L*0.1,
+      xlab = "Longueur en cm",
+      main=pond.sp[i])   
+}  
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=3}
+
+for (i in 1:length(sp)){
+fig3=ggplot(data_emp_ind_21[data_emp_ind_21$sp==sp[i],],aes(x = L*0.1)) +
+  
+  geom_histogram(color = "black")+
+  
+  facet_grid(sp~pond,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm")
+print(fig3)
+}
+
+```
+
+## Histogramme du poids : par espèces
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+
+for (i in 1:length(sp)){
+
+hist(data_emp_ind_21[data_emp_ind_21$sp==sp[i],]$L*0.1,
+      xlab = "Longueur en cm",
+      main=sp[i])   
+}  
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+
+ggplot(data_emp_ind_21,aes(x = L*0.1)) +
+  
+  geom_histogram(color = "black")+
+ 
+  facet_wrap(~sp,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm")
+
+```
+
+# Test de normalité par Shapiro-Wilk
+
+## Par espèces
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+norm_pond.sp1<-data_emp_ind_21 %>% group_by(sp) %>%shapiro_test(W)%>%mutate(Interpretation=case_when(p<0.05~"Normale",
+                                                                                                          T~"Non normale"))
+knitr::kable(norm_pond.sp1,align = "cccccc",digits = 4)
+```
+
+```{r,include=F,warning=F, error=FALSE, message=F}
+data_emp_ind_21$pond<-as.character(data_emp_ind_21$pond)
+
+grille_test.pond.sp1=data_emp_ind_21%>%
+  group_by(sp)%>%
+  tally()%>%dplyr::select(-n)
+
+library("agricolae")
+
+tabl_synth.pond.sp1=function(x){
+  espece=x[1]
+  type=x[2]
+ 
+data = data_emp_ind_21%>%filter(sp==espece)
+
+mdl=lm(W~pond,data=data)
+
+anova_mdl= anova(mdl)
+
+tukey_mdl= HSD.test(mdl,"pond", group=TRUE,console = T)
+
+if(type=="anov"){
+
+table=cbind(data.frame(espece), data.frame(anova_mdl[1,c("Df","Sum Sq","F value","Pr(>F)")]))
+
+}else{
+
+table=cbind(data.frame(espece), data.frame(t(tukey_mdl$groups))[2,]) 
+
+}
+
+return(table)
+}
+
+
+table_anov.mdl=data.frame(do.call(bind_rows, apply(data.frame(grille_test.pond.sp1,"anov"), 1, tabl_synth.pond.sp1)))
+
+
+table_tuckey.mdl=data.frame(do.call(bind_rows, apply(data.frame(grille_test.pond.sp1,"tukey"), 1, tabl_synth.pond.sp1)))
+```
+
+#### Anova
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+knitr::kable(table_anov.mdl,align = "cccccc")
+```
+
+#### Tuckey
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+knitr::kable(table_tuckey.mdl,align = "cccccc")
+```
+
+## Par traitement et par espèces
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+norm_pond.sp2<-data_emp_ind_21 %>% group_by(treatment,sp) %>%shapiro_test(W)%>%mutate(Interpretation=case_when(p<0.05~"Normale",T~"Non normale"))
+
+knitr::kable(norm_pond.sp2,align = "cccccc",digits = 4)                                                                                   
+```
+
+
+
+
+### ANOVA entre espèces d'un même traitement
+
+```{r,include=F,warning=F, error=FALSE, message=F}
+data_emp_ind_21$pond<-as.character(data_emp_ind_21$pond)
+
+grille_test.pond.sp2=data_emp_ind_21%>%
+  group_by(sp,treatment)%>%
+  tally()%>%dplyr::select(-n)
+
+library("agricolae")
+
+tabl_synth.pond.sp2=function(x){
+  espece=x[1]
+  trtmt=x[2]
+  type=x[3]
+ 
+data = data_emp_ind_21%>%filter(sp==espece,treatment==trtmt)
+
+mdl=lm(W~pond,data=data)
+
+anova_mdl= anova(mdl)
+
+tukey_mdl= HSD.test(mdl,"pond", group=TRUE,console = T)
+
+if(type=="anov"){
+
+table=cbind(data.frame(espece,trtmt), data.frame(anova_mdl[1,c("Df","Sum Sq","F value","Pr(>F)")]))
+
+}else{
+
+table=cbind(data.frame(espece,trtmt), data.frame(t(tukey_mdl$groups))[2,]) 
+
+}
+
+return(table)
+}
+
+
+table_anov.mdl2=data.frame(do.call(bind_rows, apply(data.frame(grille_test.pond.sp2,"anov"), 1, tabl_synth.pond.sp2)))
+
+
+table_tuckey.mdl2=data.frame(do.call(bind_rows, apply(data.frame(grille_test.pond.sp2,"tukey"), 1, tabl_synth.pond.sp2)))
+```
+
+#### Anova
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+knitr::kable(table_anov.mdl2,align = "cccccc")
+```
+
+#### Tuckey
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+knitr::kable(table_tuckey.mdl2,align = "cccccc")
+```
+
+
+# Test de student entre les traiments
+
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+# Comparaison du poids moyen des espèces entre les deux traitements
+
+table_student.emp.sp<- data_emp_ind_21 %>% group_by(sp)%>%t_test(W ~ treatment) %>%add_significance()
+
+knitr::kable(table_student.emp.sp,align = "cccccc")
+```
+
+
+# Pêche
+
+# Pour l'anné 2021
+
+# Pratique pour l'année 2021
+
+## Données de mensuration individuelle
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Individual weighing data
+
+# Summary of species data by pond and treatment: average individual weight (Wi), total weight (Wi_T), and initial size (Ni)
+Peche21_indiv<-data_pch_ind_21%>%group_by(pond,treatment,sp)%>%summarise(Wimin=min(W),Wimax=max(W),Wimean=mean(W),sdi=sd(W),Wi_T=sum(W),Ni=n())%>%mutate(Prc=Wi_T/sum(Wi_T)*100)
+
+
+knitr::kable(Peche21_indiv,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+
+## Données de mensuration individuelle : moyenne par espèce
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Individual weighing data
+
+# Summary of species data by pond and treatment: average individual weight (Wi), total weight (Wi_T), and initial size (Ni)
+Peche21_indiv.m.sp<-data_pch_ind_21%>%group_by(sp)%>%summarise(Wimin=min(W),Wimax=max(W),Wimean=mean(W),sdi=sd(W),Wi_T=sum(W),Ni=n())%>%mutate(Prc=Wi_T/sum(Wi_T)*100)
+
+
+knitr::kable(Peche21_indiv.m.sp,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+
+
+## Donnée de mensuration groupée
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Grouped data
+Peche21_grp<-data_pch_grp_21%>%group_by(pond,treatment,sp)%>%summarise(Wt=sum(Wt),Nt=sum(Nt),Wi=Wt/Nt)
+
+knitr::kable(Peche21_grp,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+
+### Grouper le data individuel et le data groupé 
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Linked individual and grouped data
+
+## Select the column "pond,treatment,sp,W"
+
+slct.data.pch.ind.21<-data_pch_ind_21%>%select(pond,treatment,sp,W)
+
+slct.data.pch.grp.21<-Peche21_grp%>%select(pond,treatment,sp,Wi)%>%rename(W=Wi)%>%mutate(pond=case_when(pond=="1"~"1G",
+                                                                                                       pond=="2"~"2G",
+                                                                                                       pond=="3"~"3G",
+                                                                                                       pond=="4"~"4G",
+                                                                                                       pond=="5"~"5G",
+                                                                                                       T~"6G"))
+slct.data.pch.ind.21$pond<-as.character(slct.data.pch.ind.21$pond)
+slct.data.pch.W.21<-rbind(slct.data.pch.grp.21,slct.data.pch.ind.21)
+
+```
+
+
+### Figure avec les données groupées
+```{r,echo=F,warning=F, error=FALSE, message=F}
+slct.data.pch.W.21$pond<-as.character(slct.data.pch.W.21$pond)
+slct.data.pch.W.21$treatment<-factor(slct.data.pch.W.21$treatment,levels = c("P","C"))
+
+trtmt_names <- c('C'='Ouvert','P'='Pacage')
+sp_names <- c('Carp'='Carpe','Zander'='Sandre','Roach'='Gardon','Rudd'='Rotengle','Tench'='Tanche','Roach_juv'="Gardon~juv",'Tench_juv'='Tanche~juv',"Crayfish"="Ecrevisse","Mussel"="Anodonte")
+
+for(i in 1:length(unique(slct.data.pch.W.21$sp))){
+  
+Fig.pch.W.21= ggplot(slct.data.pch.W.21[slct.data.pch.W.21$sp==unique(slct.data.pch.W.21$sp)[i],],aes(x = pond, y = W)) +
+  geom_boxplot(width = 0.5,fill="grey50",color="black")+
+  geom_jitter(alpha = 0.2, size = 2, width = 0.1, height = 0) +
+  stat_boxplot(geom="errorbar",width=0.2, coef=NULL)+
+    stat_summary(fun=mean,col="red",size=0.2)+
+  facet_grid(sp~treatment,scales='free',labeller = labeller(sp = as_labeller(sp_names,label_parsed),
+                                                            treatment= as_labeller(trtmt_names, label_parsed)))+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "white",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "white",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Etangs",y="Poids (g)")
+
+print(Fig.pch.W.21)
+}
+
+
+```
+
+
+### Figure sans les données groupées
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.height=10,fig.width=4}
+data_pch_ind_21.fltr<-data_pch_ind_21[!data_pch_ind_21$sp%in%c("Mussel","Crayfish"),]
+
+data_pch_ind_21.fltr$pond<-as.character(data_pch_ind_21.fltr$pond)
+
+data_pch_ind_21.fltr$treatment<-factor(data_pch_ind_21.fltr$treatment,levels = c("P","C"))
+
+trtmt_names <- c('C'='Ouvert','P'='Pacage')
+pch.sp_names <- c('Carp'='Carpe','Rudd'='Rotengle','Roach'='Gardon','Roach_juv'="Gardon~juv.",'Tench'='Tanche','Tench_juv'='Tanche~juv.','Zander'='Sandre')
+
+  ggplot(data_pch_ind_21.fltr,aes(x = pond, y = W)) +
+  geom_boxplot(width = 0.5,fill="grey50",color="black")+
+  geom_jitter(alpha = 0.2, size = 2, width = 0.1, height = 0) +
+  stat_boxplot(geom="errorbar",width=0.2, coef=NULL)+
+    stat_summary(fun=mean,col="red",size=0.2)+
+  facet_grid(sp~treatment,scales='free',labeller = labeller(treatment= as_labeller(trtmt_names, label_parsed),
+                                                            sp = as_labeller(pch.sp_names,label_parsed)))+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "white",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "white",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Etangs",y="Poids (g)")
+
+
+
+
+```
+
+
+#### Données groupées
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+# Linked individual and grouped data
+Peche21_grp1<-as.data.frame(lapply(Peche21_grp,rep,Peche21_grp$Nt))%>%select(pond,treatment,sp,Wi)
+
+# Repeat N times the number of unmeasured individuals
+Peche21_indiv1<-data_pch_ind_21%>%select(pond,treatment,sp,W)%>%rename(Wi=W) # Select variable
+
+Peche21<-rbind(Peche21_indiv1,Peche21_grp1) # Combine all data
+
+```
+
+## Poids des espèces par étang et par traitement (en tenant compte des données mesurées en groupe)
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+Peche21_all<-Peche21%>%group_by(pond,treatment,sp)%>%summarise(Wimean=mean(Wi),sdi=sd(Wi),Wi_T=sum(Wi),Ni=n())%>%mutate(Prc=Wi_T/sum(Wi_T)*100)
+knitr::kable(Peche21_all,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+## Moyennes des poids des espèces par étang (en tenant compte des données mesurées en groupe)
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+Peche21_all1<-Peche21_all%>%group_by(sp)%>%summarise(sdi=sd(Wimean),Wimean=mean(Wimean),Wi_T=mean(Wi_T),Ni=mean(Ni))%>%mutate(Prc=Wi_T/sum(Wi_T)*100)
+Peche21_all1$d_kg.ha<-Peche21_all1$Wi_T*(1/0.1)/1000
+knitr::kable(Peche21_all1,align = "cccccc",digits=2)# Print table (to 0.01 decimal)
+```
+
+## Densité moyen d'empoissonnement (kg/ha)
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+sum(Peche21_all1$Wi_T)*(1/0.1)/1000
+```
+
+## Poids moyen d'empoissonnement (en kg)
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+sum(Peche21_all1$Wi_T)/1000
+```
+
+## Effectif moyen d'empoissonnement
+
+```{r,echo=FALSE,warning = FALSE,message = FALSE}
+round(sum(Peche21_all1$Ni),digits = 0)
+```
+
+# Lenght-weight relationship: by Pond and by species
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+# Individual data
+# Concatenate the column of pond and species in order to have a unique name
+
+data_pch_ind_21$pond.sp<-paste(data_pch_ind_21$pond,":",data_pch_ind_21$sp)
+
+data_pch_ind_21.fltr<-data_pch_ind_21[!data_pch_ind_21$sp%in%c("Mussel","Crayfish"),]
+
+
+# Plot of length vs weight
+
+pch.pond.sp<-unique(data_pch_ind_21.fltr$pond.sp)
+
+for (i in 1:length(pch.pond.sp)){
+   plot(data_pch_ind_21.fltr[data_pch_ind_21.fltr$pond.sp==pch.pond.sp[i],]$L*0.1,data_pch_ind_21.fltr[data_pch_ind_21.fltr$pond.sp==pch.pond.sp[i],]$W,
+      xlab = "Longueur en cm",ylab = "Poids en g",
+      main=paste("Etang",pch.pond.sp[i]))  
+}  
+
+```
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=3}
+pch.sp<-unique(data_pch_ind_21.fltr$sp)
+
+for (i in 1:length(pch.sp)){
+fig1=ggplot(data_pch_ind_21.fltr[data_pch_ind_21.fltr$sp==pch.sp[i],],aes(x = L*0.1, y = W)) +
+  geom_point()+
+  facet_grid(sp~pond,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm",y="Poids en g")
+print(fig1)
+}
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+# Tableau des valeurs ajouter dans les figures
+
+Peche21_indiv_xy<-data_pch_ind_21.fltr%>%group_by(sp)%>%summarise(L.x=min(L),W.y=max(W)) # Pour avoir les coordonnées des points
+
+Peche21_indiv_xy1<-merge(Peche21_indiv,Peche21_indiv_xy) # Coupler avec le tableau 
+
+# Modification des coordo pour sandre
+Peche21_indiv_xy1[Peche21_indiv_xy1$sp=="Rudd",]$L.x<-Peche21_indiv_xy1[Peche21_indiv_xy1$sp=="Rudd",]$L.x*0.75
+ 
+Peche21_indiv_xy1[Peche21_indiv_xy1$sp=="Roach",]$L.x<-Peche21_indiv_xy1[Peche21_indiv_xy1$sp=="Roach",]$L.x*0.7
+
+Peche21_indiv_xy1[Peche21_indiv_xy1$sp=="Carp",]$L.x<-Peche21_indiv_xy1[Peche21_indiv_xy1$sp=="Carp",]$L.x*0.75
+
+Peche21_indiv_xy1[Peche21_indiv_xy1$sp=="Tench",]$L.x<-Peche21_indiv_xy1[Peche21_indiv_xy1$sp=="Tench",]$L.x*0.65
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=3}
+
+for (i in 1:length(pch.sp)){
+pch.fig11=
+  
+  ggplot(data_pch_ind_21.fltr[data_pch_ind_21.fltr$sp==pch.sp[i],],aes(x = L*0.1, y = W)) +
+  geom_point()+
+  
+  geom_text(data=Peche21_indiv_xy1[Peche21_indiv_xy1$sp==pch.sp[i],], aes(x=L.x*0.1*1.9,y = W.y,label=paste(round(Wimean,2),"±",round(sdi,2))))+
+  geom_text(data=Peche21_indiv_xy1[Peche21_indiv_xy1$sp==pch.sp[i],], aes(x=L.x*0.1*1.9,y = W.y*0.9,label=paste("(",Wimin,"-",Wimax,")")))+
+  
+  facet_grid(sp~pond)+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm",y="Poids en g")
+
+
+print(pch.fig11)
+}
+
+```
+
+
+
+
+### Combinaison avec empoissonnement
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.height=10,fig.width=4}
+## Combinaison de data Emp + Pêche
+
+data_emp.pch<-rbind(data_emp_ind_21,data_pch_ind_21.fltr)
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+data_emp.pch$pond<-as.character(data_emp.pch$pond)
+
+data_emp.pch$Period=factor(data_emp.pch$Period,levels=c("Stocking","Fishing"))
+
+data_emp.pch$treatment<-factor(data_emp.pch$treatment,levels = c("P","C"))
+
+trtmt_names <- c('C'='Ouvert','P'='Pacage')
+pch.sp_names <- c('Carp'='Carpe','Rudd'='Rotengle','Roach'='Gardon','Roach_juv'="Gardon~juv.",'Tench'='Tanche','Tench_juv'='Tanche~juv.','Zander'='Sandre')
+
+for (i in 1:length(unique(data_emp.pch$sp))){
+
+fig.emp.pch= ggplot(data_emp.pch[data_emp.pch$sp==unique(data_emp.pch$sp)[i],],aes(x = pond, y = W,fill=Period)) +
+  geom_boxplot()+
+  
+  geom_point(position = position_jitterdodge(),alpha = 0.2, size = 2, width = 0.1, height = 0)+
+  
+  stat_boxplot(geom="errorbar",width=0.2, coef=NULL,position=position_dodge(width=0.75))+
+  stat_summary(fun.y = mean,position=position_dodge(width=0.75),col="red",size=0.2)+
+  facet_grid(sp~treatment,scales='free',labeller = labeller(treatment= as_labeller(trtmt_names, label_parsed),
+                                                            sp = as_labeller(pch.sp_names,label_parsed)))+
+     
+  scale_fill_manual(values=c("gray26","grey"),breaks=c("Stocking","Fishing"),labels=c("Alevinage","Pêche"))+
+    
+    
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "white",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "white",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Etangs",y="Poids (g)",fill="")
+print(fig.emp.pch)
+}
+
+
+```
+
+# Lenght-weight relationship: by species
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+pch.sp<-unique(data_pch_ind_21.fltr$sp)
+
+for (i in 1:length(pch.sp)){
+  
+   plot(data_pch_ind_21.fltr[data_pch_ind_21.fltr$sp==pch.sp[i],]$L*0.10,data_pch_ind_21.fltr[data_pch_ind_21.fltr$sp==pch.sp[i],]$W,
+      xlab = "Longueur en cm",ylab = "Poids en g",
+      main=pch.sp[i])   
+}  
+
+```
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=6}
+
+data_pch_ind_21.fltr$pond<-as.character(data_pch_ind_21.fltr$pond)
+
+ggplot(data_pch_ind_21.fltr,aes(x = L*0.1, y = W)) +
+  geom_point(aes(color=pond))+
+  facet_wrap(~sp,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm",y="Poids en g",color="Pond")
+
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+# Tableau des valeurs ajouter dans les figures
+Peche21_indiv_xy2<-data_pch_ind_21.fltr%>%group_by(sp)%>%summarise(Wimin=min(W),Wimax=max(W),Wimean=mean(W),sdi=sd(W),L.x=min(L)) # Pour avoir les coordonnées des points
+
+
+Peche21_indiv_xy2[Peche21_indiv_xy2$sp=="Roach_juv",]$L.x<-Peche21_indiv_xy2[Peche21_indiv_xy2$sp=="Roach_juv",]$L.x*1.1
+
+Peche21_indiv_xy2[Peche21_indiv_xy2$sp=="Roach",]$L.x<-Peche21_indiv_xy2[Peche21_indiv_xy2$sp=="Roach",]$L.x*0.75
+
+Peche21_indiv_xy2[Peche21_indiv_xy2$sp=="Tench",]$L.x<-Peche21_indiv_xy2[Peche21_indiv_xy2$sp=="Tench",]$L.x*0.75
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=6}
+ggplot(data_pch_ind_21.fltr,aes(x = L*0.1, y = W)) +
+  geom_point(aes(color=pond))+
+ 
+   geom_text(data=Peche21_indiv_xy2, aes(x=L.x*0.1*1.5,y = Wimax,label=paste(round(Wimean,2),"±",round(sdi,2))))+
+   geom_text(data=Peche21_indiv_xy2, aes(x=L.x*0.1*1.5,y = Wimax*0.9,label=paste("(",Wimin,"-",Wimax,")")))+
+  
+  facet_wrap(~sp,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm",y="Poids en g",color="Pond")
+
+
+```
+
+
+
+# Données individuelles
+
+## Histogramme du poids : par espèces et par étangs
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+
+for (i in 1:length(pch.pond.sp)){
+
+hist(data_pch_ind_21.fltr[data_pch_ind_21.fltr$pond.sp==pch.pond.sp[i],]$W,
+      xlab = "Poids en g",
+      main=pch.pond.sp[i])   
+}  
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=3}
+
+for (i in 1:length(pch.sp)){
+fig2.pch=ggplot(data_pch_ind_21.fltr[data_pch_ind_21.fltr$sp==pch.sp[i],],aes(x = W)) +
+  
+  geom_histogram(color = "black")+
+  
+  facet_grid(sp~pond,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Poids en g")
+print(fig2.pch)
+}
+
+```
+
+## Histogramme du poids : par espèces
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+
+for (i in 1:length(pch.sp)){
+
+hist(data_pch_ind_21.fltr[data_pch_ind_21.fltr$sp==pch.sp[i],]$W,
+      xlab = "Poids en g",
+      main=pch.sp[i])   
+}  
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+
+ggplot(data_pch_ind_21.fltr,aes(x = W)) +
+  
+  geom_histogram(color = "black")+
+ 
+  facet_wrap(~sp,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Poids en g")
+
+```
+
+## Histogramme de la taille : par espèces et par étangs
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+
+for (i in 1:length(pch.pond.sp)){
+
+hist(data_pch_ind_21.fltr[data_pch_ind_21.fltr$pond.sp==pch.pond.sp[i],]$L*0.1,
+      xlab = "Longueur en cm",
+      main=pch.pond.sp[i])   
+}  
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=10,fig.height=3}
+
+for (i in 1:length(pch.sp)){
+fig3.pch=ggplot(data_pch_ind_21.fltr[data_pch_ind_21.fltr$sp==pch.sp[i],],aes(x = L*0.1)) +
+  
+  geom_histogram(color = "black")+
+  
+  facet_grid(sp~pond,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm")
+print(fig3.pch)
+}
+
+```
+
+## Histogramme du poids : par espèces
+
+```{r,include=F,warning=F, error=FALSE, message=F,fig.height=4.25}
+
+# Plot of length vs weight
+
+
+for (i in 1:length(pch.sp)){
+
+hist(data_pch_ind_21.fltr[data_pch_ind_21.fltr$sp==pch.sp[i],]$L*0.1,
+      xlab = "Longueur en cm",
+      main=pch.sp[i])   
+}  
+
+```
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+
+ggplot(data_pch_ind_21.fltr,aes(x = L*0.1)) +
+  
+  geom_histogram(color = "black")+
+ 
+  facet_wrap(~sp,scales='free')+
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey75",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "grey75",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Longueur en cm")
+
+```
+
+
+
+# Test de normalité par Shapiro-Wilk
+
+## Par espèces
+
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+norm_pond.pch.sp1<-data_pch_ind_21.fltr %>% group_by(sp) %>%shapiro_test(W)%>%mutate(Interpretation=case_when(p<0.05~"Normale",                                                                                                          T~"Non normale"))
+knitr::kable(norm_pond.pch.sp1,align = "cccccc",digits = 4)
+```
+
+```{r,include=F,warning=F, error=FALSE, message=F}
+data_pch_ind_21.fltr$pond<-as.character(data_pch_ind_21.fltr$pond)
+
+grille_test.pond.pch.sp1=data_pch_ind_21.fltr%>%
+  group_by(sp)%>%
+  tally()%>%dplyr::select(-n)
+
+library("agricolae")
+
+tabl_synth.pond.pch.sp1=function(x){
+  espece=x[1]
+  type=x[2]
+ 
+data = data_pch_ind_21.fltr%>%filter(sp==espece)
+
+mdl=lm(W~pond,data=data)
+
+anova_mdl= anova(mdl)
+
+tukey_mdl= HSD.test(mdl,"pond", group=TRUE,console = T)
+
+if(type=="anov"){
+
+table=cbind(data.frame(espece), data.frame(anova_mdl[1,c("Df","Sum Sq","F value","Pr(>F)")]))
+
+}else{
+
+table=cbind(data.frame(espece), data.frame(t(tukey_mdl$groups))[2,]) 
+
+}
+
+return(table)
+}
+
+
+pch.table_anov.mdl=data.frame(do.call(bind_rows, apply(data.frame(grille_test.pond.pch.sp1,"anov"), 1, tabl_synth.pond.pch.sp1)))
+
+
+pch.table_tuckey.mdl=data.frame(do.call(bind_rows, apply(data.frame(grille_test.pond.pch.sp1,"tukey"), 1, tabl_synth.pond.pch.sp1)))
+```
+
+#### Anova
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+knitr::kable(pch.table_anov.mdl,align = "cccccc")
+```
+
+#### Tuckey
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+knitr::kable(pch.table_tuckey.mdl,align = "cccccc")
+```
+
+## Par traitement et par espèces
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+norm_pond.pch.sp2<-data_pch_ind_21.fltr %>% group_by(treatment,sp) %>%shapiro_test(W)%>%mutate(Interpretation=case_when(p<0.05~"Normale",T~"Non normale"))
+
+knitr::kable(norm_pond.pch.sp2,align = "cccccc",digits = 4)                                                                                   
+```
+
+
+
+
+### ANOVA entre espèces d'un même traitement
+
+```{r,include=F,warning=F, error=FALSE, message=F}
+data_pch_ind_21.fltr$pond<-as.character(data_pch_ind_21.fltr$pond)
+
+grille_test.pond.pch.sp2=data_pch_ind_21.fltr%>%
+  group_by(sp,treatment)%>%
+  tally()%>%dplyr::select(-n)
+
+library("agricolae")
+
+tabl_synth.pond.pch.sp2=function(x){
+  espece=x[1]
+  trtmt=x[2]
+  type=x[3]
+ 
+data = data_pch_ind_21.fltr%>%filter(sp==espece,treatment==trtmt)
+
+mdl=lm(W~pond,data=data)
+
+anova_mdl= anova(mdl)
+
+tukey_mdl= HSD.test(mdl,"pond", group=TRUE,console = T)
+
+if(type=="anov"){
+
+table=cbind(data.frame(espece,trtmt), data.frame(anova_mdl[1,c("Df","Sum Sq","F value","Pr(>F)")]))
+
+}else{
+
+table=cbind(data.frame(espece,trtmt), data.frame(t(tukey_mdl$groups))[2,]) 
+
+}
+
+return(table)
+}
+
+
+pch.table_anov.mdl2=data.frame(do.call(bind_rows, apply(data.frame(grille_test.pond.pch.sp2,"anov"), 1, tabl_synth.pond.pch.sp2)))
+
+
+pch.table_tuckey.mdl2=data.frame(do.call(bind_rows, apply(data.frame(grille_test.pond.pch.sp2,"tukey"), 1, tabl_synth.pond.pch.sp2)))
+```
+
+#### Anova
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+knitr::kable(pch.table_anov.mdl2,align = "cccccc")
+```
+
+#### Tuckey
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+knitr::kable(pch.table_tuckey.mdl2,align = "cccccc")
+```
+
+# Test de student entre les traiments
+
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+# Comparaison du poids moyen des espèces entre les deux traitements
+
+table_student.pch.sp<- data_pch_ind_21.fltr %>% group_by(sp)%>%t_test(W ~ treatment) %>%add_significance()
+
+knitr::kable(table_student.pch.sp,align = "cccccc")
+```
+
+### Poids moyen des espèces entre les traitements
+
+
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.height=7,fig.width=9}
+
+table_student.pch.sp.y<-data_pch_ind_21.fltr%>%group_by(sp)%>%summarise(Wimax=max(W))%>%select(sp,Wimax)%>%rename(W=Wimax)
+table_student.pch.sp.y1<-data_pch_ind_21.fltr%>%group_by(sp,treatment)%>%tally()%>%dplyr::select(-n)
+table_student.pch.sp.y<-merge(table_student.pch.sp.y1,table_student.pch.sp.y)
+
+
+table_student.pch.sp1 <-merge(table_student.pch.sp,table_student.pch.sp.y)
+
+data_pch_ind_21.fltr$treatment<-factor(data_pch_ind_21.fltr$treatment,levels = c("P","C"))
+
+trtmt_names <- c('C'='Ouvert','P'='Pacage')
+pch.sp_names <- c('Carp'='Carpe','Rudd'='Rotengle','Roach'='Gardon','Roach_juv'="Gardon~juv.",'Tench'='Tanche','Tench_juv'='Tanche~juv.','Zander'='Sandre')
+
+
+ ggplot(data_pch_ind_21.fltr,aes(x = sp, y = W,fill=treatment)) +
+  geom_boxplot()+
+  geom_text(data=table_student.pch.sp1, aes(x=sp,y=W,label=p.signif))+
+   
+  geom_point(position = position_jitterdodge(),alpha = 0.2, size = 2, width = 0.1, height = 0)+
+
+  stat_boxplot(geom="errorbar",width=0.2, coef=NULL,position=position_dodge(width=0.75))+
+  stat_summary(fun.y = mean,position=position_dodge(width=0.75),col="red",size=0.2)+
+   facet_wrap(~sp,scales='free',labeller = labeller(treatment= as_labeller(trtmt_names, label_parsed),
+                                                            sp = as_labeller(pch.sp_names,label_parsed)))+
+  
+     
+  scale_fill_manual(values=c("grey","gray26"),breaks=c("P","C"),labels=c("Pacage","Ouvert"))+
+    
+    
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "white",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "white",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 12,face="bold"),
+    axis.text = element_text(color="black",size = 10),
+    axis.title = element_text(color="black",size = 12,face="bold"),
+    legend.title = element_text(color="black",size = 13,face="bold"),
+    legend.text = element_text(color="black",size = 12,face="bold")
+      )+
+  labs(x="Etangs",y="Poids (g)",fill="")
+
+
+```
+
+
+# Tableau de poids
+
+
+*Rotengle: 
+
+Utiliser les données initiaux de gardon pour rotengle. Comme ils étaient petits avant, la différenciation était difficile.
+```{r,echo=F,warning=F, error=FALSE, message=F}
+# Empoissonnement
+
+Emp.grp.sp.21<-Emp21_all1%>%select(sp,Wi_T,Ni,Prc)
+
+Emp.ind.sp.21<-Emp21_indiv.m.sp%>%select(sp,Wimean,sdi)
+
+Emp.grp.ind.sp.21<-merge(Emp.grp.sp.21,Emp.ind.sp.21)%>%rename(Prci=Prc) # a
+
+
+
+### Pour Rotengle
+Emp.grp.ind.sp.21.rudd<-Emp.grp.ind.sp.21[Emp.grp.ind.sp.21=="Roach",]
+Emp.grp.ind.sp.21.rudd$sp="Rudd"
+Emp.grp.ind.sp.21<-rbind(Emp.grp.ind.sp.21,Emp.grp.ind.sp.21.rudd)
+
+
+# Pêche
+
+Pch.grp.sp.21<-Peche21_all%>%select(pond,treatment,sp,Wi_T,Ni,Prc)%>%rename(Wf_T=Wi_T,Nf=Ni,Prcf=Prc)
+
+Pch.ind.sp.21<-Peche21_indiv%>%select(pond,treatment,sp,Wimean,sdi)%>%rename(Wfmean=Wimean,sdf=sdi)
+
+Pch.grp.ind.sp.21<-merge(Pch.grp.sp.21,Pch.ind.sp.21)
+
+# Compiler l'empoissonnement et la pêche
+
+Pch.emp.grp.ind.sp.21<-merge(Pch.grp.ind.sp.21,Emp.grp.ind.sp.21,all.x = TRUE)
+```
+
+
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+# Fusionner le Rotengle et la gardon adulte
+
+Pch.grp.ind.sp.21.rudd.roach<-Pch.grp.ind.sp.21%>%filter(sp%in%c("Rudd","Roach"))%>%group_by(pond,treatment)%>%summarise(Wf_T=sum(Wf_T),Nf=sum(Nf),Prcf=sum(Prcf))
+Pch.grp.ind.sp.21.rudd.roach$sp="Rudd_Roach"
+
+Emp.grp.ind.sp.21.rudd.roach<-Emp.grp.ind.sp.21[Emp.grp.ind.sp.21=="Roach",]%>%select(-Wimean,-sdi)
+Emp.grp.ind.sp.21.rudd.roach$sp="Rudd_Roach"
+
+Pch.Emp.grp.ind.sp.21.rudd.roach<-merge(Pch.grp.ind.sp.21.rudd.roach,Emp.grp.ind.sp.21.rudd.roach,all.x = TRUE)
+
+
+
+
+# Fusionner le Rotengle et la gardon adulte + juvenile
+Pch.grp.ind.sp.21.rudd.roach.juv<-Pch.grp.ind.sp.21%>%filter(sp%in%c("Rudd","Roach","Roach_juv"))%>%group_by(pond,treatment)%>%summarise(Wf_T=sum(Wf_T),Nf=sum(Nf),Prcf=sum(Prcf))
+Pch.grp.ind.sp.21.rudd.roach.juv$sp="Rudd_Roach_juv"
+
+Emp.grp.ind.sp.21.rudd.roach.juv<-Emp.grp.ind.sp.21[Emp.grp.ind.sp.21=="Roach",]%>%select(-Wimean,-sdi)
+Emp.grp.ind.sp.21.rudd.roach.juv$sp="Rudd_Roach_juv"
+
+Pch.Emp.grp.ind.sp.21.rudd.roach.juv<-merge(Pch.grp.ind.sp.21.rudd.roach.juv,Emp.grp.ind.sp.21.rudd.roach.juv,all.x = TRUE)
+
+
+# Fusionner tous les poissons
+Pch.grp.ind.sp.21.tfish<-Pch.grp.ind.sp.21%>%filter(!sp%in%c("Mussel","Crayfish"))%>%group_by(pond,treatment)%>%summarise(Wf_T=sum(Wf_T),Nf=sum(Nf),Prcf=sum(Prcf))
+Pch.grp.ind.sp.21.tfish$sp="T.fish"
+
+Emp.grp.ind.sp.21.r<-merge(Emp.grp.sp.21,Emp.ind.sp.21)%>%rename(Prci=Prc) # b
+Emp.grp.ind.sp.21.tfish<-Emp.grp.ind.sp.21.r%>%summarise(Wi_T=sum(Wi_T),Ni=sum(Ni),Prci=sum(Prci))
+Emp.grp.ind.sp.21.tfish$sp="T.fish"
+
+Pch.Emp.grp.ind.sp.21.tfish<-merge(Pch.grp.ind.sp.21.tfish,Emp.grp.ind.sp.21.tfish,all.x = TRUE)
+
+
+
+# Fusionner tous
+
+Pch.emp.grp.ind.sp.21<-bind_rows(Pch.emp.grp.ind.sp.21,Pch.Emp.grp.ind.sp.21.rudd.roach,Pch.Emp.grp.ind.sp.21.rudd.roach.juv,Pch.Emp.grp.ind.sp.21.tfish)
+
+
+
+```
+
+
+
+
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+# Calculer le taux de croissance spécifique (Specific Growth Rate SGR = 100*[ln(final average individual weight) - ln(initial average individual weight)] /duration)
+# Duration = 270 days
+
+Pch.emp.grp.ind.sp.21$SGR= round(100*(log(Pch.emp.grp.ind.sp.21$Wfmean) - log(Pch.emp.grp.ind.sp.21$Wimean))/270,digits = 2)
+
+# Calculer le GMQ (Gain Moyen Quotidien= (final average individual weight) - (initial average individual weight)] /duration)
+# Duration = 270 days
+
+Pch.emp.grp.ind.sp.21$GMQ= round((Pch.emp.grp.ind.sp.21$Wfmean - Pch.emp.grp.ind.sp.21$Wimean)/270,digits = 2)
+
+
+
+# Calculer le taux de mortalité (Z= (Ni-Nf)/Nix100)
+
+Pch.emp.grp.ind.sp.21$Z= round(((Pch.emp.grp.ind.sp.21$Ni-Pch.emp.grp.ind.sp.21$Nf)/Pch.emp.grp.ind.sp.21$Ni)*100,digits = 1)
+
+# Calculer le gain en Biomasse (GB=(Final Total Weight - Initial Total Weight)/Initial Total Weight)
+
+Pch.emp.grp.ind.sp.21$GB=round((Pch.emp.grp.ind.sp.21$Wf_T-Pch.emp.grp.ind.sp.21$Wi_T)/Pch.emp.grp.ind.sp.21$Wi_T,digits = 2)
+
+# Calculer le coefficient du rendement(Coef.rdt= Final Total Weight/Initial Total Weight)
+
+Pch.emp.grp.ind.sp.21$Coef.rdt= round(Pch.emp.grp.ind.sp.21$Wf_T/Pch.emp.grp.ind.sp.21$Wi_T,digits = 2)
+
+# Calculer le rendement net (Coef.rdt= Final Total Weight-Initial Total Weight) en kg/ha
+
+Pch.emp.grp.ind.sp.21$Rdt.net= round((((Pch.emp.grp.ind.sp.21$Wf_T-Pch.emp.grp.ind.sp.21$Wi_T)/1000)/0.1),digits = 2)
+```
+
+
+```{r,echo=F,warning=F, error=FALSE, message=F}
+# Afficher le tableau
+knitr::kable(Pch.emp.grp.ind.sp.21,align = "ccccccccccccccccccccccccccc")
+
+# Extraire en csv
+
+# write.csv(x = Pch.emp.grp.ind.sp.21, file = "productivity_2021.csv")
+
+```
+
+
+
+# Histogramme de la productivité
+
+
+## Grouper les données de pêche  et d'empoissonnement
+```{r,echo=F,warning=F, error=FALSE, message=F}
+
+# Create a new data frame from the stocking data individual (species, mean W individual) and from the stoking data grouped( species, Nb of species )
+
+Emp.grp.sp.21.1<-Emp21_all1%>%select(sp,Ni)
+
+Emp.ind.sp.21.1<-Emp21_indiv.m.sp%>%select(sp,Wimean)
+
+Emp.21.1<-merge(Emp.grp.sp.21.1,Emp.ind.sp.21.1)
+
+# Calculate in new column = Nb x mean W individual
+
+Emp.21.1$Wi=Emp.21.1$Ni*Emp.21.1$Wimean
+
+# Create a new column to specify the Period (stocking) , pond (To)
+
+Emp.21.1$pond="To"
+Emp.21.1$Period="Stocking"
+
+# Delete unused column (Nb individual, mean W. individual)
+Emp.21.1<-Emp.21.1%>%select(-Ni,-Wimean)
+
+
+# For the fishing data : Create new column to precise the  fishing and delete the column (treatment)
+Peche21$Period="Fishing"
+Peche21.1<-Peche21%>%select(-treatment)
+
+# Merge by row the data for fishing and stocking
+Hist.all=rbind(Emp.21.1,Peche21.1)
+
+# Reorganize the data by summing by group
+Hist.all<-Hist.all%>%group_by(Period,pond,sp)%>%summarise(Wi=sum(Wi))
+```
+
+
+## Plot histogramme pour toutes les espèces
+```{r,echo=F,warning=F, error=FALSE, message=F,fig.width=8}
+Hist.all$pond<-as.character(Hist.all$pond)
+Hist.all$pond<-factor(Hist.all$pond,levels=c("To","1","3","5","2","4","6"))
+Hist.all$sp<-factor(Hist.all$sp,levels=c("Crayfish","Mussel","Tench_juv","Tench","Rudd","Roach_juv","Roach","Carp","Zander"))
+
+
+ ggplot(Hist.all,aes(x = pond, y = Wi,fill=sp)) +
+  geom_histogram(stat = "identity", width=0.8)+
+  geom_vline(xintercept=c(1.5,4.5),color=c("grey45"),size=1,linetype="dotted")+
+  
+  scale_fill_manual(
+    values=c("#212F3D","#154360","#2874A6","#2E86C1","#3498DB","#5DADE2","#AED6F1","#ABEBC6","#48C9B0"),
+   breaks = c("Zander","Carp","Roach","Roach_juv","Rudd","Tench","Tench_juv","Mussel","Crayfish"),
+  labels=c("Sandre","Carpe","Gardon","Gardon juvénile","Rotengle","Tanche","Tanche juvénile","Anodonte","Ecrevisse"))+
+    
+  geom_segment(aes(x=1.5,xend=4.5,y=75500,yend=75500),color="grey45",
+               arrow = arrow(length = unit(0.2, "cm"),ends="both", type = "closed")) + 
+  annotate("text", x = 3, y = 80000, label = "Pacage",size=5,fontface="bold")+
+  geom_segment(aes(x=4.5,xend=7.8,y=75500,yend=75500),color="grey45",
+                arrow = arrow(length = unit(0.2, "cm"),ends="both", type = "closed")) +
+   annotate("text", x = 6, y = 80000, label = "Ouvert",size=5,fontface="bold")+
+   
+  theme_bw() +
+  theme(
+     axis.line = element_line(colour = "black"),
+    legend.key = element_blank(),
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "white",size=0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_line(colour = "white",size=0.2),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text = element_text(color="black",size = 14,face="bold"),
+    axis.text = element_text(color="black",size = 14,face="bold"),
+    axis.title = element_text(color="black",size = 14,face="bold"),
+    legend.title = element_text(color="black",size = 15,face="bold"),
+    legend.text = element_text(color="black",size = 14,face="bold")
+      )+
+  labs(x="Etangs",y="Poids (g)",fill="")
+
+
+```
