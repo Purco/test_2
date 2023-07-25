@@ -3,9 +3,6 @@ title: "Training for test2"
 output: html_notebook
 ---
 
-<<<<<<< HEAD
-
-
 
 
 ```{r,echo=FALSE,warning = FALSE,message = FALSE}
