@@ -3,6 +3,7 @@ title: "Training for test2"
 output: html_notebook
 ---
 
+<<<<<<< HEAD
 
 
 
@@ -1733,3 +1734,5 @@ Hist.all$sp<-factor(Hist.all$sp,levels=c("Crayfish","Mussel","Tench_juv","Tench"
 
 
 ```
+=======
+>>>>>>> fdc8e80ca4164948c5cd5c825679654a36c1034d
